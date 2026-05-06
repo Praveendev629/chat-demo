@@ -1,0 +1,26 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "src/index.js",
+      "use": "@netlify/node-lambda"
+    }
+  ],
+  "functions": {
+    "src/index.js": {
+      "runtime": "nodejs18.x"
+    }
+  },
+  "redirects": [
+    {
+      "from": "/api/*",
+      "to": "/.netlify/functions/index.js",
+      "status": 200
+    },
+    {
+      "from": "/socket.io/*",
+      "to": "/.netlify/functions/index.js",
+      "status": 200
+    }
+  ]
+}
