@@ -11,7 +11,13 @@ const socketHandler = require('./socket/socketHandler');
 const app = express();
 const server = http.createServer(app);
 
-// ─── Socket.io ────────────────────────────────────────────────────────────────
+// ─── Validate Required ENV ───────────────────────────────────────────────
+if (!process.env.MONGO_URI) {
+  console.error('❌ MONGO_URI is not defined in environment variables');
+  process.exit(1);
+}
+
+// ─── Socket.io ───────────────────────────────────────────────────────────
 const io = new Server(server, {
   cors: {
     origin: process.env.ALLOWED_ORIGINS
@@ -21,7 +27,7 @@ const io = new Server(server, {
   },
 });
 
-// ─── Middleware ───────────────────────────────────────────────────────────────
+// ─── Middleware ──────────────────────────────────────────────────────────
 app.use(
   cors({
     origin: process.env.ALLOWED_ORIGINS
@@ -29,44 +35,48 @@ app.use(
       : '*',
   })
 );
+
 app.use(express.json());
 
-// ─── Routes ───────────────────────────────────────────────────────────────────
+// ─── Routes ──────────────────────────────────────────────────────────────
 app.use('/api', apiRoutes);
 
 app.get('/', (req, res) => {
   res.json({ status: 'Chat server running 🚀', time: new Date() });
 });
 
-// ─── Socket handler ───────────────────────────────────────────────────────────
+// ─── Socket Handler ──────────────────────────────────────────────────────
 socketHandler(io, app);
 
-// ─── MongoDB ──────────────────────────────────────────────────────────────────
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/chatapp';
+// ─── Start Server After DB Connect ───────────────────────────────────────
+const PORT = process.env.PORT || 4000;
 
-mongoose
-  .connect(MONGO_URI)
-  .then(async () => {
+async function startServer() {
+  try {
+    await mongoose.connect(process.env.MONGO_URI);
     console.log('✅ MongoDB connected');
 
-    // Ensure admin user exists on startup
+    // Ensure admin exists
     const User = require('./models/User');
     let admin = await User.findOne({ role: 'admin' });
+
     if (!admin) {
       admin = await User.create({ name: 'Admin', role: 'admin' });
       console.log('✅ Admin user created:', admin._id);
     } else {
       console.log('✅ Admin user found:', admin._id);
     }
+
     app.set('adminId', admin._id);
-  })
-  .catch((err) => {
+
+    server.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+    });
+
+  } catch (err) {
     console.error('❌ MongoDB connection failed:', err.message);
     process.exit(1);
-  });
+  }
+}
 
-// ─── Start server ─────────────────────────────────────────────────────────────
-const PORT = process.env.PORT || 4000;
-server.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
+startServer();
